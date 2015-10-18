@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -15,27 +16,30 @@ var url = "http://localhost:8080"
 const perRoutine int = 100
 
 func main() {
-	tr := &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout:   3600 * time.Second,
-			KeepAlive: 3600 * time.Second,
-		}).Dial,
-		MaxIdleConnsPerHost: 1000000,
-	}
-	for i := 0; ; i += perRoutine {
+	var wg sync.WaitGroup
+	for i := 0; i < 20000; i += perRoutine {
 		clients := make([]*http.Client, 0, 100)
 		for c := 0; c < perRoutine; c++ {
+			tr := &http.Transport{
+				Dial: (&net.Dialer{
+					Timeout:   3600 * time.Second,
+					KeepAlive: 3600 * time.Second,
+				}).Dial,
+				MaxIdleConnsPerHost: 1000000,
+			}
 			clients = append(clients, &http.Client{Transport: tr})
 		}
-		go get(clients, i, 0)
+		wg.Add(1)
+		go get(clients, i, 0, wg)
 		if i%100 == 0 {
 			fmt.Printf("Started %v sleeping\n", i)
 		}
 		time.Sleep(1 * time.Millisecond)
 	}
+	wg.Wait()
 }
 
-func get(clients []*http.Client, no, i int) {
+func get(clients []*http.Client, no, i int, wg sync.WaitGroup) {
 	for _, cl := range clients {
 		response, err := cl.Get(url)
 		if err != nil {
@@ -49,5 +53,9 @@ func get(clients []*http.Client, no, i int) {
 		io.Copy(ioutil.Discard, response.Body)
 	}
 	time.Sleep(5000 * time.Millisecond)
-	get(clients, no, i+1)
+	if i == 1000 {
+		wg.Done()
+		return
+	}
+	get(clients, no, i+1, wg)
 }

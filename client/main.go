@@ -12,19 +12,22 @@ import (
 
 var url = "http://localhost:8080"
 
+const perRoutine int = 100
+
 func main() {
-	for i := 0; ; i++ {
-		tr := &http.Transport{
-			Dial: (&net.Dialer{
-				Timeout:   3600 * time.Second,
-				KeepAlive: 3600 * time.Second,
-			}).Dial,
-			MaxIdleConnsPerHost: 1000000,
+	tr := &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout:   3600 * time.Second,
+			KeepAlive: 3600 * time.Second,
+		}).Dial,
+		MaxIdleConnsPerHost: 1000000,
+	}
+	for i := 0; ; i += perRoutine {
+		clients := make([]*http.Client, 0, 100)
+		for c := 0; c < perRoutine; c++ {
+			clients = append(clients, &http.Client{Transport: tr})
 		}
-		var started = make(chan struct{})
-		cl := &http.Client{Transport: tr}
-		go get(cl, started, i, 0)
-		<-started
+		go get(clients, i, 0)
 		if i%100 == 0 {
 			fmt.Printf("Started %v sleeping\n", i)
 		}
@@ -32,21 +35,19 @@ func main() {
 	}
 }
 
-func get(cl *http.Client, started chan struct{}, no, i int) {
-	response, err := cl.Get(url)
-	if err != nil {
-		log.Panic(err)
+func get(clients []*http.Client, no, i int) {
+	for _, cl := range clients {
+		response, err := cl.Get(url)
+		if err != nil {
+			log.Panic(err)
+		}
+		// Verify if the response was ok
+		if response.StatusCode != http.StatusOK {
+			log.Println(response.Status)
+		}
+		defer response.Body.Close()
+		io.Copy(ioutil.Discard, response.Body)
 	}
-	if i == 0 {
-		started <- struct{}{}
-	}
-	// Verify if the response was ok
-	if response.StatusCode != http.StatusOK {
-		log.Println(response.Status)
-	}
-	defer response.Body.Close()
-	io.Copy(ioutil.Discard, response.Body)
-	//log.Printf("#%v: %v\n", no, i)
-	time.Sleep(1000 * time.Millisecond)
-	get(cl, started, no, i+1)
+	time.Sleep(5000 * time.Millisecond)
+	get(clients, no, i+1)
 }

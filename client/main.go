@@ -12,6 +12,8 @@ import (
 
 var url = "http://localhost:8080"
 
+const perRoutine int = 100
+
 func main() {
 	tr := &http.Transport{
 		Dial: (&net.Dialer{
@@ -20,17 +22,17 @@ func main() {
 		}).Dial,
 		MaxIdleConnsPerHost: 1000000,
 	}
-	for i := 0; ; i += 100 {
+	for i := 0; ; i += perRoutine {
 		clients := make([]*http.Client, 0, 100)
-		for c := 0; c < 100; c++ {
+		for c := 0; c < perRoutine; c++ {
 			clients = append(clients, &http.Client{Transport: tr})
 		}
 		go get(clients, i, 0)
 		if i%100 == 0 {
 			fmt.Printf("Started %v sleeping\n", i)
 		}
+		time.Sleep(1 * time.Millisecond)
 	}
-	time.Sleep(1 * time.Millisecond)
 }
 
 func get(clients []*http.Client, no, i int) {

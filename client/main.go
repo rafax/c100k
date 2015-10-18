@@ -14,10 +14,12 @@ import (
 var url = "http://localhost:8080"
 
 const perRoutine int = 100
+const total int = 10000
+const roundtrips int = 100
 
 func main() {
 	var wg sync.WaitGroup
-	for i := 0; i < 20000; i += perRoutine {
+	for i := 0; i < total; i += perRoutine {
 		clients := make([]*http.Client, 0, 100)
 		for c := 0; c < perRoutine; c++ {
 			tr := &http.Transport{
@@ -53,7 +55,7 @@ func get(clients []*http.Client, no, i int, wg sync.WaitGroup) {
 		io.Copy(ioutil.Discard, response.Body)
 	}
 	time.Sleep(5000 * time.Millisecond)
-	if i == 1000 {
+	if i == roundtrips {
 		wg.Done()
 		return
 	}

@@ -11,16 +11,14 @@ import (
 	"time"
 )
 
-var url = "http://localhost:8080"
-
-const perRoutine int = 100
-const total int = 10000
+const perRoutine int = 1000
+const total int = 60000
 const roundtrips int = 100
 
 func main() {
 	var wg sync.WaitGroup
 	for i := 0; i < total; i += perRoutine {
-		clients := make([]*http.Client, 0, 100)
+		clients := make([]*http.Client, 0, perRoutine)
 		for c := 0; c < perRoutine; c++ {
 			tr := &http.Transport{
 				Dial: (&net.Dialer{
@@ -33,7 +31,7 @@ func main() {
 		}
 		wg.Add(1)
 		go get(clients, i, 0, wg)
-		if i%100 == 0 {
+		if i%1000 == 0 {
 			fmt.Printf("Started %v sleeping\n", i)
 		}
 		time.Sleep(1 * time.Millisecond)
@@ -42,6 +40,7 @@ func main() {
 }
 
 func get(clients []*http.Client, no, i int, wg sync.WaitGroup) {
+	url := fmt.Sprintf("http://192.168.1.%v:8080", 200+i%30)
 	for _, cl := range clients {
 		response, err := cl.Get(url)
 		if err != nil {

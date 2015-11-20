@@ -32,7 +32,7 @@ func main() {
 			clients = append(clients, &http.Client{Transport: tr})
 		}
 		wg.Add(1)
-		go get(clients, i, 0, wg)
+		go get(clients, i, 0, &wg)
 		if i%100 == 0 {
 			fmt.Printf("Started %v sleeping\n", i)
 		}
@@ -41,13 +41,12 @@ func main() {
 	wg.Wait()
 }
 
-func get(clients []*http.Client, no, i int, wg sync.WaitGroup) {
+func get(clients []*http.Client, no, i int, wg *sync.WaitGroup) {
 	for _, cl := range clients {
 		response, err := cl.Get(url)
 		if err != nil {
 			log.Panic(err)
 		}
-		// Verify if the response was ok
 		if response.StatusCode != http.StatusOK {
 			log.Println(response.Status)
 		}

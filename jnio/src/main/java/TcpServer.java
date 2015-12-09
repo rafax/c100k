@@ -4,7 +4,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.LinkedList;
 
 public class TcpServer {
@@ -25,8 +24,7 @@ public class TcpServer {
         try {
             ServerSocket serverSocket = new ServerSocket(port);
             while (true) {
-                Socket s = serverSocket.accept();
-                System.out.println("Got request");
+                final Socket s = serverSocket.accept();
                 handleRequest(s);
             }
         } catch (IOException e) {
@@ -42,19 +40,27 @@ public class TcpServer {
         LinkedList<String> request = new LinkedList<>();
         String inputLine;
         while ((inputLine = in.readLine()) != null) {
-            if ("\r\n".equals(inputLine)) {
-                System.out.println("Read headers, break");
+            if ("".equals(inputLine)) {
                 break;
             }
-            System.out.println("Read" + Arrays.toString(inputLine.toCharArray()));
             request.add(inputLine);
         }
-        System.out.println("Full request read");
-        in.close();
-        final String[] response = r.handle((String[]) request.toArray());
+        final String[] response = r.handle(request.stream().toArray(String[]::new));
+        long length = response.length;
         for (String line : response) {
-            out.write(line);
+            length += line.getBytes().length;
         }
+        out.append("HTTP/1.1 200 OK\n");
+        out.append("Content-Length: ").append(Long.toString(length)).append("\n");
+        out.append("Content-Type: application/json").append("\n");
+        out.append("Connection: close").append("\n");
+        out.append("\n");
+        for (String line : response) {
+            out.append(line).append("\n");
+        }
+        out.flush();
         out.close();
+        in.close();
+        s.close();
     }
 }

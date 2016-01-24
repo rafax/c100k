@@ -1,1 +1,13 @@
+plugins {
+    id 'java' // or 'groovy' Must be explicitly applied
+    id 'com.github.johnrengelman.shadow' version '1.2.2'
+}
+
 apply plugin: 'java'
+apply plugin: 'com.github.johnrengelman.shadow'
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'com.gajdulewicz.jnio.Main'
+    }
+}

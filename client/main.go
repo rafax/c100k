@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,11 +12,19 @@ import (
 	"time"
 )
 
-const perRoutine int = 1000
-const total int = 60000
-const roundtrips int = 100
+const perRoutine int = 100
+const total int = 1000
+const roundtrips int = 10
+const tripPause time.Duration = time.Duration(1000) * time.Millisecond
+
+var addr = flag.String("address", "127.0.0.1", "address to bind to OR beginning of ip range")
+var port = flag.Int("port", 8098, "port to connect to")
+var ipRangeStart = flag.Int("ip-range-start", 200, "start of ip-range")
+var ipRangeEnd = flag.Int("ip-range-end", 230, "end of ip-range")
 
 func main() {
+	flag.Parse()
+
 	var wg sync.WaitGroup
 	for i := 0; i < total; i += perRoutine {
 		clients := make([]*http.Client, 0, perRoutine)
@@ -30,17 +39,18 @@ func main() {
 			clients = append(clients, &http.Client{Transport: tr})
 		}
 		wg.Add(1)
-		go get(clients, i, 0, wg)
-		if i%1000 == 0 {
+		go get(clients, i, 0, &wg)
+		if i%(10*perRoutine) == 0 {
 			fmt.Printf("Started %v sleeping\n", i)
 		}
 		time.Sleep(1 * time.Millisecond)
 	}
 	wg.Wait()
+	fmt.Println("Done")
 }
 
-func get(clients []*http.Client, no, i int, wg sync.WaitGroup) {
-	url := fmt.Sprintf("http://192.168.1.%v:8080", 200+i%30)
+func get(clients []*http.Client, no, i int, wg *sync.WaitGroup) {
+	url := fmt.Sprintf("http://%v:%v", *addr, *port)
 	for _, cl := range clients {
 		response, err := cl.Get(url)
 		if err != nil {
@@ -53,9 +63,10 @@ func get(clients []*http.Client, no, i int, wg sync.WaitGroup) {
 		defer response.Body.Close()
 		io.Copy(ioutil.Discard, response.Body)
 	}
-	time.Sleep(5000 * time.Millisecond)
+	time.Sleep(tripPause)
 	if i == roundtrips {
 		wg.Done()
+		fmt.Println("Exiting, no", no)
 		return
 	}
 	get(clients, no, i+1, wg)
